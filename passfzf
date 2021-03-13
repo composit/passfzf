@@ -1,15 +1,22 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
-shopt -s nullglob globstar
-
-source ~/.zshrc
+source $HOME/.zshrc
 prefix=${PASSWORD_STORE_DIR-~/.password-store}
 password_files=( "$prefix"/**/*.gpg )
 password_files=( "${password_files[@]#"$prefix"/}" )
 password_files=( "${password_files[@]%.gpg}" )
 
-password=$(printf '%s\n' "${password_files[@]}" | /home/matt/.fzf/bin/fzf "$@")
+password=$(printf '%s\n' "${password_files[@]}" | fzf "$@")
 
 [[ -n $password ]] || exit
 
-tmux send-keys -t notes:passfzf "pass show -c $password" C-m
+# need to open a new tmux session because pass keeps the password in the clipboard
+# for 45 seconds, then clears it.
+(
+  cat >/dev/shm/my_script.sh &&
+  chmod +x /dev/shm/my_script.sh &&
+  tmux new-session -d '/dev/shm/my_script.sh; rm /dev/shm/my_script.sh'
+) <<EOF
+  pass show -c $password
+  sleep 47
+EOF
